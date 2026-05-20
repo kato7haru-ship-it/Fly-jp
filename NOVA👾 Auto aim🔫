@@ -1,0 +1,426 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LP = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local VERSION = "1.4"
+
+local AutoAim = false
+local FOV = 150
+local AimPart = "Head"
+local ESP_Enabled = false 
+local Tracer_Enabled = false 
+local DistanceESP_Enabled = false 
+local espDrawings = {}
+local TeamCheck = true
+local FOVCircle_Enabled = true
+local PriorityTarget = nil  -- 優先ターゲットのプレイヤー名
+
+-- GUI方式のFOV円
+local fovGui = Instance.new("ScreenGui")
+fovGui.Name = "NOVAFOV"
+fovGui.Parent = game:GetService("CoreGui")
+fovGui.IgnoreGuiInset = true
+
+local fovCircle = Instance.new("Frame")
+fovCircle.Name = "Circle"
+fovCircle.Parent = fovGui
+fovCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+fovCircle.BackgroundTransparency = 1
+fovCircle.BorderSizePixel = 0
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Parent = fovCircle
+uiStroke.Thickness = 2
+uiStroke.Color = Color3.fromRGB(255, 255, 255)
+uiStroke.Transparency = 0
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(1, 0)
+uiCorner.Parent = fovCircle
+
+local function updateFOVSize()
+    fovCircle.Size = UDim2.new(0, FOV * 2, 0, FOV * 2)
+end
+updateFOVSize()
+
+-- Rayfield UI
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Window = Rayfield:CreateWindow({
+   Name = "NOVA👾 Auto aim🔫",
+   LoadingTitle = "NOVA👾 Auto aim🔫",
+   LoadingSubtitle = "by Manus AI",
+   ConfigurationSaving = { Enabled = true, FolderName = "NOVAScript", FileName = "Config" },
+   KeySystem = false
+})
+
+-- Info タブ
+local InfoTab = Window:CreateTab("ℹ️ Info", 4483345998)
+
+InfoTab:CreateButton({
+   Name = "バージョン: v" .. VERSION,
+   Callback = function()
+      Rayfield:Notify({
+         Title = "NOVA バージョン情報",
+         Content = "現在のバージョン: v" .. VERSION,
+         Duration = 3,
+      })
+   end,
+})
+
+InfoTab:CreateButton({
+   Name = "制作者: Manus AI",
+   Callback = function()
+      Rayfield:Notify({
+         Title = "制作者",
+         Content = "NOVA は Manus AI によって制作されました",
+         Duration = 3,
+      })
+   end,
+})
+
+-- Aim タブ
+local AimTab = Window:CreateTab("Aim Settings", 4483345998)
+
+AimTab:CreateToggle({
+   Name = "オートエイム",
+   CurrentValue = false,
+   Callback = function(Value) AutoAim = Value end,
+})
+
+AimTab:CreateToggle({
+   Name = "チームチェッカー (同チームを狙わない)",
+   CurrentValue = true,
+   Callback = function(Value) TeamCheck = Value end,
+})
+
+AimTab:CreateToggle({
+   Name = "FOV円を表示",
+   CurrentValue = true,
+   Callback = function(Value)
+      FOVCircle_Enabled = Value
+      fovCircle.Visible = Value
+   end,
+})
+
+AimTab:CreateDropdown({
+   Name = "エイムする場所",
+   Options = {"頭 (Head)", "体 (Torso)"},
+   CurrentOption = {"頭 (Head)"},
+   Callback = function(Option)
+      AimPart = (Option[1] == "頭 (Head)") and "Head" or "HumanoidRootPart"
+   end,
+})
+
+AimTab:CreateSlider({
+   Name = "FOVの範囲 (円の大きさ)",
+   Range = {50, 800},
+   Increment = 1,
+   CurrentValue = 150,
+   Callback = function(Value)
+      FOV = Value
+      updateFOVSize()
+   end,
+})
+
+-- ターゲット選択タブ
+local TargetTab = Window:CreateTab("🎯 ターゲット選択", 4483345998)
+
+-- 現在の優先ターゲット表示ボタン
+local targetStatusButton
+targetStatusButton = TargetTab:CreateButton({
+   Name = "優先ターゲット: なし",
+   Callback = function()
+      Rayfield:Notify({
+         Title = "優先ターゲット",
+         Content = PriorityTarget and ("現在の優先ターゲット: " .. PriorityTarget) or "優先ターゲットは設定されていません",
+         Duration = 3,
+      })
+   end,
+})
+
+-- 優先ターゲット解除ボタン
+TargetTab:CreateButton({
+   Name = "❌ 優先ターゲットを解除",
+   Callback = function()
+      PriorityTarget = nil
+      -- ステータス表示を更新
+      Rayfield:Notify({
+         Title = "ターゲット解除",
+         Content = "優先ターゲットを解除しました。FOV内で最も近い敵を狙います。",
+         Duration = 3,
+      })
+   end,
+})
+
+TargetTab:CreateSection("プレイヤーリスト (クリックで優先ターゲットに設定)")
+
+-- プレイヤーボタンを管理するテーブル
+local playerButtons = {}
+
+-- プレイヤーリストを更新する関数
+local function refreshPlayerList()
+    -- 既存ボタンを削除
+    for _, btn in pairs(playerButtons) do
+        -- Rayfieldはボタンの動的削除をサポートしていないため
+        -- ボタン名を "(退出)" に更新して無効化する
+        pcall(function()
+            btn.Name = "(空き)"
+        end)
+    end
+    playerButtons = {}
+
+    -- 現在のプレイヤー一覧を取得してボタン生成
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LP then
+            local displayName = player.DisplayName
+            local userName = player.Name
+            local label = displayName ~= userName 
+                and (displayName .. "  (@" .. userName .. ")")
+                or userName
+
+            local btn = TargetTab:CreateButton({
+                Name = "🎯 " .. label,
+                Callback = function()
+                    PriorityTarget = userName
+                    Rayfield:Notify({
+                        Title = "優先ターゲット設定",
+                        Content = label .. " を優先ターゲットに設定しました！",
+                        Duration = 3,
+                    })
+                end,
+            })
+            table.insert(playerButtons, btn)
+        end
+    end
+
+    if #playerButtons == 0 then
+        local btn = TargetTab:CreateButton({
+            Name = "（他のプレイヤーがいません）",
+            Callback = function() end,
+        })
+        table.insert(playerButtons, btn)
+    end
+end
+
+-- リスト更新ボタン
+TargetTab:CreateButton({
+   Name = "🔄 プレイヤーリストを更新",
+   Callback = function()
+      refreshPlayerList()
+      Rayfield:Notify({
+         Title = "リスト更新",
+         Content = "プレイヤーリストを更新しました",
+         Duration = 2,
+      })
+   end,
+})
+
+-- 初回リスト読み込み
+refreshPlayerList()
+
+-- プレイヤーが参加/退出したら自動更新
+Players.PlayerAdded:Connect(function()
+    task.wait(1)
+    refreshPlayerList()
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    -- 退出したプレイヤーが優先ターゲットなら解除
+    if PriorityTarget == player.Name then
+        PriorityTarget = nil
+        Rayfield:Notify({
+            Title = "ターゲット退出",
+            Content = player.DisplayName .. " がゲームを退出したため、優先ターゲットを解除しました。",
+            Duration = 4,
+        })
+    end
+    task.wait(0.5)
+    refreshPlayerList()
+end)
+
+-- Visuals タブ
+local VisualsTab = Window:CreateTab("Visuals", 4483345998)
+
+VisualsTab:CreateToggle({
+   Name = "ESP (敵を四角で囲む)",
+   CurrentValue = false,
+   Callback = function(Value)
+      ESP_Enabled = Value
+      if not ESP_Enabled and not Tracer_Enabled and not DistanceESP_Enabled then
+         for _, drawing in pairs(espDrawings) do drawing:Remove() end
+         espDrawings = {}
+      end
+   end,
+})
+
+VisualsTab:CreateToggle({
+   Name = "トレーサー (敵への線)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Tracer_Enabled = Value
+      if not ESP_Enabled and not Tracer_Enabled and not DistanceESP_Enabled then
+         for _, drawing in pairs(espDrawings) do drawing:Remove() end
+         espDrawings = {}
+      end
+   end,
+})
+
+VisualsTab:CreateToggle({
+   Name = "距離表示 (Distance ESP)",
+   CurrentValue = false,
+   Callback = function(Value)
+      DistanceESP_Enabled = Value
+      if not ESP_Enabled and not Tracer_Enabled and not DistanceESP_Enabled then
+         for _, drawing in pairs(espDrawings) do drawing:Remove() end
+         espDrawings = {}
+      end
+   end,
+})
+
+-- Core Logic
+local function visible(part)
+    local origin = Camera.CFrame.Position
+    local dir = part.Position - origin
+    local param = RaycastParams.new()
+    param.FilterDescendantsInstances = {LP.Character}
+    param.FilterType = Enum.RaycastFilterType.Blacklist
+    local ray = workspace:Raycast(origin, dir, param)
+    return ray and ray.Instance:IsDescendantOf(part.Parent) or false
+end
+
+local function isSameTeam(player)
+    if not TeamCheck then return false end
+    return player.Team == LP.Team
+end
+
+local function getTarget()
+    -- 優先ターゲットが設定されている場合はそちらを優先
+    if PriorityTarget then
+        local priorityPlayer = Players:FindFirstChild(PriorityTarget)
+        if priorityPlayer and priorityPlayer ~= LP 
+            and not isSameTeam(priorityPlayer)
+            and priorityPlayer.Character 
+            and priorityPlayer.Character:FindFirstChild(AimPart) then
+            
+            local part = priorityPlayer.Character[AimPart]
+            local pos, vis = Camera:WorldToViewportPoint(part.Position)
+            -- FOV範囲内かチェック（優先ターゲットはFOVを2倍まで拡張して追跡）
+            local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+            if vis and mag < FOV * 2 then
+                return priorityPlayer
+            end
+        end
+    end
+
+    -- 優先ターゲットがいない or 範囲外の場合は通常ロジック
+    local closest = nil
+    local dist = FOV
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LP and not isSameTeam(v) and v.Character and v.Character:FindFirstChild(AimPart) then
+            local part = v.Character[AimPart]
+            local pos, vis = Camera:WorldToViewportPoint(part.Position)
+            if vis and visible(part) then
+                local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if mag < dist then
+                    dist = mag
+                    closest = v
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function drawVisuals(player, color)
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local head = char:FindFirstChild("Head")
+    if not hrp or not head then return end
+
+    local headPos, headVis = Camera:WorldToViewportPoint(head.Position)
+    local rootPos, rootVis = Camera:WorldToViewportPoint(hrp.Position)
+
+    if headVis or rootVis then
+        if ESP_Enabled then
+            local height = math.abs(headPos.Y - rootPos.Y) * 2
+            local width = height / 1.5
+            local topLeft = Vector2.new(rootPos.X - width/2, rootPos.Y - height/2)
+
+            local box = espDrawings[player.Name .. "_Box"] or Drawing.new("Square")
+            box.Thickness = 2
+            box.Filled = false
+            box.Visible = true
+            box.Color = color
+            box.Size = Vector2.new(width, height)
+            box.Position = topLeft
+            espDrawings[player.Name .. "_Box"] = box
+
+            local name = espDrawings[player.Name .. "_Name"] or Drawing.new("Text")
+            name.Size = 14
+            name.Outline = true
+            name.Center = true
+            name.Visible = true
+            name.Color = color
+            name.Text = player.DisplayName  -- 表示名を使用
+            name.Position = Vector2.new(rootPos.X, topLeft.Y - 15)
+            espDrawings[player.Name .. "_Name"] = name
+        end
+
+        if Tracer_Enabled then
+            local tracer = espDrawings[player.Name .. "_Tracer"] or Drawing.new("Line")
+            tracer.Thickness = 2
+            tracer.Color = color
+            tracer.Transparency = 1
+            tracer.Visible = true
+            tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+            espDrawings[player.Name .. "_Tracer"] = tracer
+        end
+
+        if DistanceESP_Enabled then
+            local dist = math.floor((LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and 
+                        (LP.Character.HumanoidRootPart.Position - hrp.Position).Magnitude or 0) + 0.5)
+            
+            local dText = espDrawings[player.Name .. "_Distance"] or Drawing.new("Text")
+            dText.Size = 12
+            dText.Outline = true
+            dText.Center = true
+            dText.Visible = true
+            dText.Color = color
+            dText.Text = tostring(dist) .. "m"
+            dText.Position = Vector2.new(rootPos.X, (espDrawings[player.Name .. "_Name"] and espDrawings[player.Name .. "_Name"].Position.Y + 15) or (rootPos.Y - 30))
+            espDrawings[player.Name .. "_Distance"] = dText
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+    
+    if AutoAim then
+        local t = getTarget()
+        if t and t.Character and t.Character:FindFirstChild(AimPart) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, t.Character[AimPart].Position)
+        end
+    end
+    
+    if ESP_Enabled or Tracer_Enabled or DistanceESP_Enabled then
+        for _, drawing in pairs(espDrawings) do 
+            drawing.Visible = false 
+        end
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LP and not isSameTeam(player) and player.Character then
+                -- 優先ターゲットは黄色、それ以外は赤色で表示
+                local espColor = (PriorityTarget and player.Name == PriorityTarget) 
+                    and Color3.fromRGB(255, 215, 0) 
+                    or Color3.fromRGB(255, 0, 0)
+                drawVisuals(player, espColor)
+            end
+        end
+    end
+end)
