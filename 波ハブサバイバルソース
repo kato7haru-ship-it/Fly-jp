@@ -1,0 +1,159 @@
+-- ts file was generated at discord.gg/25ms
+
+local genv = getgenv()
+
+game:GetService('ReplicatedStorage')
+
+local _call5 = game:GetService('Players')
+local _call7 = game:GetService('RunService')
+
+game:GetService('UserInputService')
+
+local _call11 = game:GetService('SoundService')
+local _call13 = game:GetService('StarterGui')
+
+game:GetService('HttpService')
+
+local _LocalPlayer16 = _call5.LocalPlayer
+local _call18 = Instance.new('Sound')
+
+_call18.SoundId = 'rbxassetid://2865227271'
+_call18.Parent = _call11
+
+_call18:Play()
+_call18.Ended:Connect(function()
+    _call18:Destroy()
+end)
+
+local _30 = loadstring(game:HttpGet([[https://raw.githubusercontent.com/jadpy/suki/refs/heads/main/orion]]))()
+local _call32 = _30:MakeWindow({
+    ConfigFolder = 'SuperRingPartsConfig',
+    HidePremium = false,
+    Name = '\u{6ce2}hub\u{1f30a}\u{ff08}\u{74b0}\u{5883}\u{30b5}\u{30d0}\u{30a4}\u{30d0}\u{30eb}\u{7248}\u{ff09}',
+    SaveConfig = true,
+})
+local _call34 = _call32:MakeTab({
+    PremiumOnly = false,
+    Name = '\u{6ce2}hub\u{1f30a}\u{74b0}\u{5883}\u{7248}',
+    Icon = 'rbxassetid://4483345998',
+})
+
+_call34:AddToggle({
+    Callback = function(_37)
+        local _call39 = Instance.new('Sound')
+
+        _call39.SoundId = 'rbxassetid://12221967'
+        _call39.Parent = _call11
+
+        _call39:Play()
+        _call39.Ended:Connect(function()
+            _call39:Destroy()
+        end)
+    end,
+    Name = '\u{8d77}\u{52d5}',
+    Default = false,
+})
+_call34:AddSlider({
+    Min = 0,
+    Color = Color3.fromRGB(153, 153, 0),
+    Name = '\u{534a}\u{5f84}',
+    ValueName = '\u{86df}\u{ff64}',
+    Max = 200,
+    Increment = 1,
+    Callback = function(_52) end,
+    Default = 50,
+})
+_call34:AddSlider({
+    Min = 0,
+    Color = Color3.fromRGB(153, 0, 153),
+    Name = '\u{9ad8}\u{3055}',
+    ValueName = '\u{86df}\u{ff64}',
+    Max = 500,
+    Increment = 1,
+    Callback = function(_57) end,
+    Default = 100,
+})
+_call34:AddSlider({
+    Min = 0,
+    Color = Color3.fromRGB(0, 153, 153),
+    Name = '\u{56de}\u{8ee2}\u{901f}\u{5ea6}',
+    ValueName = '\u{86df}\u{ff64}',
+    Max = 100,
+    Increment = 1,
+    Callback = function(_62) end,
+    Default = 10,
+})
+_call34:AddSlider({
+    Min = 0,
+    Color = Color3.fromRGB(153, 0, 0),
+    Name = '\u{5438}\u{3044}\u{8fbc}\u{3080}\u{5f37}\u{3055}',
+    ValueName = '\u{86df}\u{ff64}',
+    Max = 5000,
+    Increment = 1,
+    Callback = function(_67) end,
+    Default = 1000,
+})
+_call34:AddButton({
+    Name = 'Fly ',
+    Callback = function()
+        local _call72 = Instance.new('Sound')
+
+        _call72.SoundId = 'rbxassetid://12221967'
+        _call72.Parent = _call11
+
+        _call72:Play()
+        _call72.Ended:Connect(function()
+            _call72:Destroy()
+        end)
+        loadstring(game:HttpGet([[https://rawscripts.net/raw/Universal-Script-Fly-gui-v3-78856]]))()
+    end,
+})
+
+local _call88 = Instance.new('Part', Instance.new('Folder', workspace))
+
+Instance.new('Attachment', _call88)
+
+_call88.Anchored = true
+_call88.CanCollide = false
+_call88.Transparency = 1
+
+local _ = genv.Network
+
+genv.Network = {
+    BaseParts = {},
+    Velocity = Vector3.new(14.46262424, 14.46262424, 14.46262424),
+}
+_LocalPlayer16.ReplicationFocus = workspace
+
+_call7.Heartbeat:Connect(function()
+    sethiddenproperty(_LocalPlayer16, 'SimulationRadius', 1 / 0)
+
+    local _ = genv.Network
+end)
+
+for _102, _102_2 in pairs(workspace:GetDescendants())do
+    _102_2:IsA('BasePart')
+
+    local _ = _102_2.Anchored
+end
+
+workspace.DescendantAdded:Connect(function(_109)
+    _109:IsA('BasePart')
+
+    local _ = _109.Anchored
+end)
+workspace.DescendantRemoving:Connect(function(_116)
+    local _117 = table.find({}, _116)
+
+    table.remove({}, _117)
+end)
+_call7.Heartbeat:Connect(function()
+    local _ = _LocalPlayer16.Character:FindFirstChild('HumanoidRootPart').Position
+end)
+_call13:SetCore('SendNotification', {
+    Duration = 5,
+    Text = 'fly\u{30b9}\u{30af}\u{30ea}\u{30d7}\u{30c8}\u{8d77}\u{52d5}',
+    Title = 'fly',
+    Icon = _call5:GetUserThumbnailAsync(_call5:GetUserIdFromNameAsync('Robloxlukasgames'), Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420),
+})
+_30:Init()
